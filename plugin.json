@@ -1,0 +1,15 @@
+{
+	"id": "nodebb-plugin-discord-notifier",
+	"url": "https://github.com/ariastel/nodebb-plugin-discord-notifier",
+	"library": "./library.js",
+	"hooks": [
+		{ "hook": "static:app.load", "method": "init"},
+		{ "hook": "filter:admin.header.build", "method": "admin.menu"},
+		{ "hook": "action:plugins.fireHook", "method": "onHookFired" }
+	],
+	"acpScripts": [
+		"lib/admin.js"
+	],
+	"templates": "templates",
+	"settingsRoute": "/admin/plugins/discord-notifier"
+}
