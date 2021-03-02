@@ -78,9 +78,12 @@ async function makeRequest(channelId, template, hookData) {
   const parsedTemplate = parseTemplate(template, hookData);
   const jsonTemplate = JSON.parse(parsedTemplate);
 
-  const channel = await discordClient.channels.fetch(channelId);
+
   const message = new discordJS.MessageEmbed(jsonTemplate).setTimestamp();
-  await channel.send(message);
+  await discordClient.api
+    .channels(channelId)
+    .messages
+    .post({ data: { embed: message.toJSON() } });
 }
 
 async function getSettings() {
@@ -99,10 +102,7 @@ async function checkBotSettings(token) {
     discordClient.destroy();
   }
   discordClient = new discordJS.Client();
-  discordClient.once('ready', () => {
-    winston.verbose('[discord-notifier] - bot ready!');
-  });
-  await discordClient.login(token);
+  discordClient.token = token;
 }
 
 function parseTemplate(template = '', hookData = {}) {
