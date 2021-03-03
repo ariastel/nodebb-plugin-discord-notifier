@@ -27,7 +27,11 @@ Plugin.init = async function (params) {
 Plugin.onHookFired = async function (hookData) {
   for (const hook of settings.hooks) {
     if (hook.channelId && hook.name === hookData.hook) {
-      await makeRequest(hook.channelId, hook.template, hookData);
+      try {
+        await makeRequest(hook.channelId, hook.template, hookData);
+      } catch (e) {
+        winston.log(`[discord-notifier] - error with processing a request for hook ${hook.name}! ${e}`);
+      }
     }
   }
 };
@@ -35,14 +39,13 @@ Plugin.onHookFired = async function (hookData) {
 
 Plugin.admin = {};
 
-Plugin.admin.menu = function (menu, callback) {
+Plugin.admin.menu = async function (menu) {
   menu.plugins.push({
     route: '/plugins/discord-notifier',
     icon: 'fa-chart-bar',
     name: 'Discord Notifier',
   });
-
-  setImmediate(callback, null, menu);
+  return menu;
 };
 
 socketAdmin.plugins['discord-notifier'] = {};
@@ -78,7 +81,6 @@ async function makeRequest(channelId, template, hookData) {
   const parsedTemplate = parseTemplate(template, hookData);
   const jsonTemplate = JSON.parse(parsedTemplate);
 
-
   const message = new discordJS.MessageEmbed(jsonTemplate).setTimestamp();
   await discordClient.api
     .channels(channelId)
@@ -87,8 +89,13 @@ async function makeRequest(channelId, template, hookData) {
 }
 
 async function getSettings() {
-  const data = await db.get('nodebb-plugin-discord-notifier');
-  return JSON.parse(data) || { token: null, hooks: [] };
+  try {
+    const data = await db.get('nodebb-plugin-discord-notifier');
+    return JSON.parse(data) || { token: null, hooks: [] };
+  } catch (e) {
+    winston.log(`[discord-notifier] - can't get settings! ${e}`);
+    return { token: null, hooks: [] };
+  }
 }
 
 async function checkBotSettings(token) {
