@@ -5,13 +5,13 @@ const discordJS = require('discord.js');
 const nconf = require.main.require('nconf');
 const winston = require.main.require('winston');
 const db = require.main.require('./src/database');
+const pubsub = require.main.require('./src/pubsub');
 const routeHelpers = require.main.require('./src/routes/helpers');
 const socketAdmin = require.main.require('./src/socket.io/admin');
-const pubsub = require.main.require('./src/pubsub');
 
 
 let settings = {
-  token: null,
+  token: undefined,
   hooks: []
 };
 let discordClient = null;
@@ -30,22 +30,19 @@ Plugin.onHookFired = async function (hookData) {
       try {
         await makeRequest(hook.channelId, hook.template, hookData);
       } catch (e) {
-        winston.log(`[discord-notifier] - error with processing a request for hook ${hook.name}! ${e}`);
+        winston.error(`[discord-notifier] - error with processing a request for hook ${hook.name}! ${e}`);
       }
     }
   }
 };
 
-
-Plugin.admin = {};
-
-Plugin.admin.menu = async function (menu) {
-  menu.plugins.push({
+Plugin.addAdminNavigation = async function (custom_header) {
+  custom_header.plugins.push({
     route: '/plugins/discord-notifier',
     icon: 'fa-chart-bar',
     name: 'Discord Notifier',
   });
-  return menu;
+  return custom_header;
 };
 
 socketAdmin.plugins['discord-notifier'] = {};
@@ -74,7 +71,7 @@ async function renderAdmin(req, res, next) {
 
 async function makeRequest(channelId, template, hookData) {
   if (!discordClient) {
-    winston.log('[discord-notifier] - discord was not initialized!');
+    winston.error('[discord-notifier] - discord was not initialized!');
     return;
   }
 
@@ -93,21 +90,22 @@ async function getSettings() {
     const data = await db.get('nodebb-plugin-discord-notifier');
     return JSON.parse(data) || { token: null, hooks: [] };
   } catch (e) {
-    winston.log(`[discord-notifier] - can't get settings! ${e}`);
+    winston.error(`[discord-notifier] - can't get settings! ${e}`);
     return { token: null, hooks: [] };
   }
 }
 
 async function checkBotSettings(token) {
-  if (!token) {
+
+  token = token || process.env.DISCORD_NOTIFIER_TOKEN;
+  if (!token || (discordClient && discordClient.token === token)) {
     return;
   }
-  if (discordClient && discordClient.token === token) {
-    return;
-  }
+
   if (discordClient) {
     discordClient.destroy();
   }
+
   discordClient = new discordJS.Client();
   discordClient.token = token;
 }
